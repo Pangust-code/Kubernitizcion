@@ -1,0 +1,80 @@
+# ─── Configuración de Prometheus ───────────────────────────────────────────────
+#
+# Prometheus recolecta ("scrapea") métricas haciendo GET a /metrics
+# en cada servicio a intervalos regulares.
+#
+# Flujo:
+#   App expone /metrics (formato texto)
+#       ↑
+#   Prometheus hace GET /metrics cada 15s
+#       ↑
+#   Grafana consulta Prometheus con PromQL
+#       ↑
+#   Dashboard visual en http://localhost:3000
+#
+# PromQL (Prometheus Query Language) — ejemplos útiles:
+#   rate(http_requests_total[1m])              → requests por segundo
+#   histogram_quantile(0.99, ...)              → latencia p99
+#   sum(http_requests_total{status_code=~"5.."}) → total de errores 5xx
+
+global:
+  scrape_interval:     15s   # Con qué frecuencia scrapear métricas
+  evaluation_interval: 15s   # Con qué frecuencia evaluar reglas de alertas
+  scrape_timeout:      10s   # Tiempo máximo para un scrape
+
+  # Labels que se añaden a TODAS las series de tiempo de este Prometheus.
+  # Útil cuando tienes múltiples instancias de Prometheus (multi-cluster).
+  external_labels:
+    environment: 'demo'
+    region: 'local'
+
+
+# ─── Reglas de alertas (opcional) ─────────────────────────────────────────────
+# En producción definirías alertas como:
+#   - error_rate > 5% por más de 2 minutos → alertar en Slack/PagerDuty
+#   - latencia p99 > 500ms → alertar
+#   - instancia down → alertar inmediatamente
+# rule_files:
+#   - "alerts.yml"
+
+
+# ─── Targets a scrapear ────────────────────────────────────────────────────────
+scrape_configs:
+
+  # ── Métricas de la propia instancia de Prometheus ────────────────────────
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']
+
+  # ── Métricas de la API (ambas instancias) ─────────────────────────────────
+  # En docker-compose tenemos dos servicios: api1 y api2.
+  # Prometheus los scrapea por separado — así puedes comparar sus métricas.
+  # El label "instance" identifica de qué instancia proviene cada métrica.
+  - job_name: 'demo-api'
+    scrape_interval: 10s      # Scrapear la API más frecuentemente
+    metrics_path: '/metrics'
+    static_configs:
+      - targets:
+          - 'api1:8000'       # Instancia 1
+          - 'api2:8000'       # Instancia 2
+        labels:
+          service: 'demo-api'
+          environment: 'demo'
+
+  # ── Métricas de Redis (con redis_exporter) ────────────────────────────────
+  # redis_exporter convierte las métricas internas de Redis al formato Prometheus.
+  # Expone: conexiones activas, hit rate, memoria usada, comandos por segundo, etc.
+  - job_name: 'redis'
+    static_configs:
+      - targets: ['redis-exporter:9121']
+        labels:
+          service: 'redis'
+
+  # ── Métricas de Nginx (con nginx-prometheus-exporter) ─────────────────────
+  # nginx-exporter lee las estadísticas de Nginx (nginx_status) y las expone.
+  # Expone: conexiones activas, requests/s, upstream health, etc.
+  - job_name: 'nginx'
+    static_configs:
+      - targets: ['nginx-exporter:9113']
+        labels:
+          service: 'nginx'

@@ -1,0 +1,20 @@
+# ─── Grafana: Datasource de Prometheus (provisioning automático) ───────────────
+#
+# Este archivo configura Grafana automáticamente al arrancar.
+# Sin él, tendrías que configurar el datasource manualmente en la UI.
+#
+# "Provisioning" = configuración como código.
+# Principio: toda la infraestructura debe ser reproducible desde código.
+
+apiVersion: 1
+
+datasources:
+  - name: Prometheus
+    type: prometheus
+    uid: prometheus-demo          # ID fijo para referenciar en dashboards
+    url: http://prometheus:9090   # "prometheus" es el nombre del servicio en compose
+    access: proxy                 # Grafana hace las queries (no el browser)
+    isDefault: true               # Datasource por defecto
+    jsonData:
+      httpMethod: POST
+      timeInterval: "10s"         # Debe coincidir con scrape_interval

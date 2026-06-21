@@ -1,0 +1,271 @@
+# ─── Docker Compose: Arquitectura completa ─────────────────────────────────────
+#
+# Servicios incluidos:
+#
+#   nginx          → Load balancer + reverse proxy        puerto 80
+#   api1           → Instancia 1 de la API FastAPI        puerto interno 8000
+#   api2           → Instancia 2 de la API FastAPI        puerto interno 8000
+#   redis          → Base de datos de caché               puerto interno 6379
+#   redis-exporter → Exporta métricas de Redis a Prometheus
+#   nginx-exporter → Exporta métricas de Nginx a Prometheus
+#   prometheus     → Recolección de métricas              puerto 9090
+#   grafana        → Visualización de métricas            puerto 3000
+#
+# ┌─────────────────────────────────────────────────────────────────────┐
+# │                         ARQUITECTURA                                 │
+# │                                                                      │
+# │  Cliente → :80 → Nginx → api1:8000 ──┐                              │
+# │                         └→ api2:8000 ─┤→ Redis:6379                 │
+# │                                        │                             │
+# │  Prometheus → /metrics (api1, api2, redis-exporter, nginx-exporter) │
+# │  Grafana    → Prometheus (queries PromQL)                            │
+# └─────────────────────────────────────────────────────────────────────┘
+#
+# Comandos clave:
+#   docker compose up --build          → Levantar todo
+#   docker compose up --build -d       → En background
+#   docker compose logs -f api1        → Ver logs de api1
+#   docker compose ps                  → Ver estado de los servicios
+#   docker compose down                → Parar y borrar contenedores
+#   docker compose down -v             → También borra los volúmenes
+
+
+services:
+
+  # ─── Nginx: Load Balancer ─────────────────────────────────────────────────
+  nginx:
+    image: nginx:1.27-alpine
+    ports:
+      - "80:80"                          # El único puerto expuesto al host
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro   # :ro = read-only
+    depends_on:
+      api1:
+        condition: service_healthy       # Espera a que api1 esté lista
+      api2:
+        condition: service_healthy       # Espera a que api2 esté lista
+    networks:
+      - app-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "nginx", "-t"]       # Verifica que la config de Nginx es válida
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+
+  # ─── API Instancia 1 ──────────────────────────────────────────────────────
+  api1:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        APP_VERSION: "1.0.0"             # Versión base. Para la demo del rolling update:
+                                          # docker compose build --build-arg APP_VERSION=2.0.0 api1
+    # IMPORTANTE: NO definir "image:" con tag fijo ni "APP_VERSION" en environment.
+    # Si se hardcodea aquí, sobreescribe el valor bakeado por el Dockerfile en runtime.
+    # La versión viene de la variable ENV del Dockerfile (set via build-arg).
+    container_name: demo-api1
+    environment:
+      - APP_NAME=demo-api
+      - ENVIRONMENT=demo
+      - REDIS_URL=redis://redis:6379
+      - LOG_LEVEL=INFO
+      - RATE_LIMIT_REQUESTS=30
+      - RATE_LIMIT_WINDOW_SECONDS=60
+    depends_on:
+      redis:
+        condition: service_healthy
+    networks:
+      - app-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c",
+             "import urllib.request; urllib.request.urlopen('http://localhost:8000/ready')"]
+      interval: 10s
+      timeout: 5s
+      start_period: 15s                  # Dar tiempo al startup antes de verificar
+      retries: 3
+    # Limitar recursos: importante en producción para evitar que un servicio
+    # consuma todos los recursos del host.
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 256M
+        reservations:
+          cpus: '0.1'
+          memory: 64M
+
+
+  # ─── API Instancia 2 ──────────────────────────────────────────────────────
+  # Idéntica a api1. En la demo del rolling update, desplegarías v2 aquí.
+  api2:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        APP_VERSION: "1.0.0"
+    container_name: demo-api2
+    environment:
+      - APP_NAME=demo-api
+      - ENVIRONMENT=demo
+      - REDIS_URL=redis://redis:6379
+      - LOG_LEVEL=INFO
+      - RATE_LIMIT_REQUESTS=30
+      - RATE_LIMIT_WINDOW_SECONDS=60
+    depends_on:
+      redis:
+        condition: service_healthy
+    networks:
+      - app-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c",
+             "import urllib.request; urllib.request.urlopen('http://localhost:8000/ready')"]
+      interval: 10s
+      timeout: 5s
+      start_period: 15s
+      retries: 3
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 256M
+        reservations:
+          cpus: '0.1'
+          memory: 64M
+
+
+  # ─── Redis: Caché compartido ──────────────────────────────────────────────
+  redis:
+    image: redis:7-alpine
+    container_name: demo-redis
+    # Configuración de Redis para producción:
+    #   maxmemory: límite de memoria (aquí 128MB para la demo)
+    #   maxmemory-policy: qué hacer cuando se llena (allkeys-lru = borrar los menos usados)
+    #   save: persistencia en disco (desactivada en la demo para simplificar)
+    command: >
+      redis-server
+      --maxmemory 128mb
+      --maxmemory-policy allkeys-lru
+      --save ""
+      --appendonly no
+    volumes:
+      - redis-data:/data               # Persistencia (útil si activas --appendonly)
+    networks:
+      - app-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    deploy:
+      resources:
+        limits:
+          memory: 192M
+
+
+  # ─── Redis Exporter: Métricas de Redis para Prometheus ───────────────────
+  redis-exporter:
+    image: oliver006/redis_exporter:v1.63.0
+    container_name: demo-redis-exporter
+    environment:
+      - REDIS_ADDR=redis://redis:6379
+    depends_on:
+      redis:
+        condition: service_healthy
+    networks:
+      - app-network
+    restart: unless-stopped
+
+
+  # ─── Nginx Exporter: Métricas de Nginx para Prometheus ───────────────────
+  # Requiere que Nginx exponga el endpoint /nginx_status (stub_status module).
+  # Añadir a nginx.conf si se quiere usar:
+  #   location /nginx_status { stub_status; allow 127.0.0.1; deny all; }
+  nginx-exporter:
+    image: nginx/nginx-prometheus-exporter:1.3
+    container_name: demo-nginx-exporter
+    command:
+      - "--nginx.scrape-uri=http://nginx/stub_status"
+    depends_on:
+      - nginx
+    networks:
+      - app-network
+    restart: unless-stopped
+
+
+  # ─── Prometheus: Recolección de métricas ─────────────────────────────────
+  prometheus:
+    image: prom/prometheus:v2.54.1
+    container_name: demo-prometheus
+    ports:
+      - "9090:9090"                      # UI de Prometheus: http://localhost:9090
+    volumes:
+      - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus-data:/prometheus      # Datos históricos de métricas
+    command:
+      - "--config.file=/etc/prometheus/prometheus.yml"
+      - "--storage.tsdb.path=/prometheus"
+      - "--storage.tsdb.retention.time=7d"   # Guardar 7 días de métricas
+      - "--web.enable-lifecycle"              # Permite recargar config sin reiniciar
+    networks:
+      - app-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:9090/-/healthy"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+
+
+  # ─── Grafana: Visualización de métricas ──────────────────────────────────
+  grafana:
+    image: grafana/grafana:11.2.0
+    container_name: demo-grafana
+    ports:
+      - "3000:3000"                      # UI de Grafana: http://localhost:3000
+    environment:
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=admin123    # Cambiar en producción
+      - GF_USERS_ALLOW_SIGN_UP=false
+      - GF_SERVER_DOMAIN=localhost
+      # Plugins adicionales útiles:
+      # - GF_INSTALL_PLUGINS=grafana-clock-panel,grafana-simple-json-datasource
+    volumes:
+      - ./grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./grafana/dashboards:/etc/grafana/dashboards:ro
+      - grafana-data:/var/lib/grafana
+    depends_on:
+      prometheus:
+        condition: service_healthy
+    networks:
+      - app-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:3000/api/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+
+
+# ─── Redes ────────────────────────────────────────────────────────────────────
+networks:
+  app-network:
+    driver: bridge
+    # Los contenedores en la misma red se ven por nombre de servicio.
+    # Los servicios NO son accesibles desde fuera a menos que se exponga un puerto.
+
+
+# ─── Volúmenes persistentes ───────────────────────────────────────────────────
+# Los volúmenes sobreviven a docker compose down.
+# Para borrarlos: docker compose down -v
+volumes:
+  redis-data:
+    driver: local
+  prometheus-data:
+    driver: local
+  grafana-data:
+    driver: local

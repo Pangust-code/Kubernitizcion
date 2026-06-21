@@ -1,0 +1,110 @@
+<svg viewBox="0 0 860 620" xmlns="http://www.w3.org/2000/svg" font-family="ui-sans-serif,system-ui,sans-serif" font-size="12">
+  <title>Arquitectura del demo: Más allá del Localhost</title>
+  <desc>Nginx → FastAPI x2 → Redis · Prometheus → Grafana</desc>
+
+  <rect width="860" height="620" fill="#F8FAFC" rx="0"/>
+
+  <!-- TÍTULO -->
+  <text x="430" y="32" text-anchor="middle" font-size="16" font-weight="700" fill="#0F172A">Arquitectura: Más allá del Localhost</text>
+  <line x1="60" y1="44" x2="800" y2="44" stroke="#E2E8F0" stroke-width="1.5"/>
+
+  <!-- CLIENTE -->
+  <rect x="330" y="60" width="200" height="52" rx="8" fill="#F1F5F9" stroke="#CBD5E1" stroke-width="1.5"/>
+  <text x="430" y="81" text-anchor="middle" font-weight="600" fill="#334155">Cliente / curl</text>
+  <text x="430" y="100" text-anchor="middle" font-size="11" fill="#64748B">Browser, curl, Postman</text>
+
+  <!-- flecha cliente → nginx -->
+  <line x1="430" y1="112" x2="430" y2="142" stroke="#94A3B8" stroke-width="1.5" marker-end="url(#arr)"/>
+  <rect x="390" y="120" width="80" height="18" rx="4" fill="#F8FAFC"/>
+  <text x="430" y="133" text-anchor="middle" font-size="10" fill="#64748B">HTTP :80</text>
+
+  <!-- NGINX -->
+  <rect x="200" y="142" width="460" height="60" rx="8" fill="#EFF6FF" stroke="#3B82F6" stroke-width="2"/>
+  <text x="430" y="167" text-anchor="middle" font-weight="700" fill="#1D4ED8" font-size="13">Nginx — Load Balancer + Reverse Proxy</text>
+  <text x="430" y="188" text-anchor="middle" font-size="11" fill="#3B82F6">Round-robin  ·  Health checks  ·  Rate limiting  ·  X-Forwarded-For</text>
+
+  <!-- flechas nginx → api1, api2 -->
+  <line x1="305" y1="202" x2="230" y2="262" stroke="#94A3B8" stroke-width="1.5" marker-end="url(#arr)"/>
+  <line x1="555" y1="202" x2="630" y2="262" stroke="#94A3B8" stroke-width="1.5" marker-end="url(#arr)"/>
+
+  <!-- API1 -->
+  <rect x="80" y="262" width="300" height="120" rx="8" fill="#F0FDF4" stroke="#10B981" stroke-width="2"/>
+  <rect x="80" y="262" width="300" height="28" rx="8" fill="#10B981"/>
+  <rect x="80" y="276" width="300" height="14" fill="#10B981"/>
+  <text x="230" y="281" text-anchor="middle" font-weight="700" fill="white" font-size="12">FastAPI — api1 :8000</text>
+  <text x="230" y="305" text-anchor="middle" font-size="11" fill="#064E3B">v1.0.0 · hostname: demo-api1</text>
+  <text x="100" y="327" font-size="10" fill="#334155">▸ /health  /ready  /info</text>
+  <text x="100" y="344" font-size="10" fill="#334155">▸ /items (CRUD + caché)</text>
+  <text x="100" y="361" font-size="10" fill="#334155">▸ /metrics (Prometheus)</text>
+
+  <!-- API2 -->
+  <rect x="480" y="262" width="300" height="120" rx="8" fill="#F0FDF4" stroke="#10B981" stroke-width="2"/>
+  <rect x="480" y="262" width="300" height="28" rx="8" fill="#10B981"/>
+  <rect x="480" y="276" width="300" height="14" fill="#10B981"/>
+  <text x="630" y="281" text-anchor="middle" font-weight="700" fill="white" font-size="12">FastAPI — api2 :8000</text>
+  <text x="630" y="305" text-anchor="middle" font-size="11" fill="#064E3B">v1.0.0 · hostname: demo-api2</text>
+  <text x="500" y="327" font-size="10" fill="#334155">▸ /health  /ready  /info</text>
+  <text x="500" y="344" font-size="10" fill="#334155">▸ /items (CRUD + caché)</text>
+  <text x="500" y="361" font-size="10" fill="#334155">▸ /metrics (Prometheus)</text>
+
+  <!-- flechas api → redis -->
+  <line x1="230" y1="382" x2="350" y2="432" stroke="#94A3B8" stroke-width="1.5" marker-end="url(#arr)"/>
+  <line x1="630" y1="382" x2="510" y2="432" stroke="#94A3B8" stroke-width="1.5" marker-end="url(#arr)"/>
+
+  <!-- REDIS -->
+  <rect x="280" y="432" width="300" height="68" rx="8" fill="#FAF5FF" stroke="#8B5CF6" stroke-width="2"/>
+  <text x="430" y="455" text-anchor="middle" font-weight="700" fill="#6D28D9" font-size="13">Redis :6379</text>
+  <text x="430" y="475" text-anchor="middle" font-size="11" fill="#7C3AED">Caché compartido · Rate limiting</text>
+  <text x="430" y="492" text-anchor="middle" font-size="10" fill="#94A3B8">estado compartido entre instancias</text>
+
+  <!-- línea divisora observabilidad -->
+  <line x1="58" y1="510" x2="802" y2="510" stroke="#E2E8F0" stroke-width="1"/>
+  <text x="430" y="524" text-anchor="middle" font-size="11" fill="#94A3B8" font-weight="600">OBSERVABILIDAD</text>
+
+  <!-- redis-exporter -->
+  <rect x="64" y="532" width="160" height="48" rx="6" fill="#F1F5F9" stroke="#CBD5E1" stroke-width="1.2"/>
+  <text x="144" y="552" text-anchor="middle" font-size="11" font-weight="600" fill="#334155">redis-exporter</text>
+  <text x="144" y="569" text-anchor="middle" font-size="10" fill="#64748B">:9121 — métricas Redis</text>
+
+  <!-- nginx-exporter -->
+  <rect x="245" y="532" width="160" height="48" rx="6" fill="#F1F5F9" stroke="#CBD5E1" stroke-width="1.2"/>
+  <text x="325" y="552" text-anchor="middle" font-size="11" font-weight="600" fill="#334155">nginx-exporter</text>
+  <text x="325" y="569" text-anchor="middle" font-size="10" fill="#64748B">:9113 — métricas Nginx</text>
+
+  <!-- Prometheus -->
+  <rect x="430" y="532" width="170" height="48" rx="6" fill="#FFF7ED" stroke="#F59E0B" stroke-width="1.5"/>
+  <text x="515" y="552" text-anchor="middle" font-size="11" font-weight="700" fill="#B45309">Prometheus :9090</text>
+  <text x="515" y="569" text-anchor="middle" font-size="10" fill="#92400E">scrape /metrics cada 10s</text>
+
+  <!-- Grafana -->
+  <rect x="622" y="532" width="170" height="48" rx="6" fill="#FFF1F2" stroke="#F43F5E" stroke-width="1.5"/>
+  <text x="707" y="552" text-anchor="middle" font-size="11" font-weight="700" fill="#BE123C">Grafana :3000</text>
+  <text x="707" y="569" text-anchor="middle" font-size="10" fill="#9F1239">dashboards + alertas</text>
+
+  <!-- flechas scrape métricas -->
+  <line x1="230" y1="382" x2="490" y2="532" stroke="#F59E0B" stroke-width="1.2" stroke-dasharray="4,3" marker-end="url(#arrY)"/>
+  <line x1="630" y1="382" x2="535" y2="532" stroke="#F59E0B" stroke-width="1.2" stroke-dasharray="4,3" marker-end="url(#arrY)"/>
+  <line x1="300" y1="500" x2="200" y2="532" stroke="#8B5CF6" stroke-width="1" stroke-dasharray="3,3" marker-end="url(#arrP)"/>
+  <line x1="224" y1="556" x2="430" y2="556" stroke="#F59E0B" stroke-width="1" stroke-dasharray="3,3" marker-end="url(#arrY)"/>
+  <line x1="405" y1="556" x2="430" y2="556" stroke="#F59E0B" stroke-width="1" stroke-dasharray="3,3"/>
+  <!-- prometheus → grafana -->
+  <line x1="600" y1="556" x2="622" y2="556" stroke="#F43F5E" stroke-width="1.5" marker-end="url(#arrR)"/>
+
+  <!-- LEYENDA -->
+  <rect x="62" y="590" width="736" height="22" rx="4" fill="#F1F5F9"/>
+  <line x1="82" y1="601" x2="104" y2="601" stroke="#94A3B8" stroke-width="1.5"/>
+  <text x="108" y="605" font-size="10" fill="#64748B">Tráfico HTTP</text>
+  <line x1="175" y1="601" x2="197" y2="601" stroke="#F59E0B" stroke-width="1.5" stroke-dasharray="4,3"/>
+  <text x="201" y="605" font-size="10" fill="#64748B">Scrape métricas</text>
+  <line x1="290" y1="601" x2="312" y2="601" stroke="#8B5CF6" stroke-width="1.5" stroke-dasharray="3,3"/>
+  <text x="316" y="605" font-size="10" fill="#64748B">Exporters</text>
+  <line x1="382" y1="601" x2="404" y2="601" stroke="#F43F5E" stroke-width="1.5"/>
+  <text x="408" y="605" font-size="10" fill="#64748B">Query PromQL (Grafana → Prometheus)</text>
+
+  <defs>
+    <marker id="arr"  markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L0,6 L8,3 z" fill="#94A3B8"/></marker>
+    <marker id="arrY" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L0,6 L8,3 z" fill="#F59E0B"/></marker>
+    <marker id="arrP" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L0,6 L8,3 z" fill="#8B5CF6"/></marker>
+    <marker id="arrR" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L0,6 L8,3 z" fill="#F43F5E"/></marker>
+  </defs>
+</svg>
