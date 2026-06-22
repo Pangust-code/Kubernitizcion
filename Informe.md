@@ -47,5 +47,15 @@ Se generó tráfico real hacia la API mediante Nginx usando la URL http://127.0.
 ![alt text](</evidencia/hpa conf.png>)
 Se habilitó metrics-server para permitir que Kubernetes obtenga métricas de CPU y memoria. Luego se creó el HPA demo-api-hpa, asociado al Deployment demo-api, con un mínimo de 2 réplicas y un máximo de 6. El umbral de CPU se configuró en 30% para observar el escalado en el entorno local de Minikube
 # HPA bajo carga
-![alt text](cargaHPA.png)
+![alt text](/evidencia/cargaHPA.png)
 Se generó carga sobre la API usando Pods temporales load-generator. El HPA monitoreó el consumo de CPU del Deployment demo-api y ajustó el número de réplicas según el umbral configurado. Esto demuestra una capacidad de Kubernetes que Docker Compose no ofrece de forma nativa: el escalado automático basado en métricas.
+# Rolling Update
+![alt text](</evidencia/version 2.png>)
+Se verificó el endpoint /info a través de Nginx y la API respondió con la versión 2.0.0, confirmando que el Rolling Update fue aplicado correctamente.
+# Rollback
+![alt text](/evidencia/rollback.png)
+![alt text](</evidencia/rollback info.png>)
+Se ejecutó un rollback del Deployment demo-api, regresando desde la versión 2.0.0 a la versión anterior. Kubernetes actualizó progresivamente los Pods y la API continuó respondiendo a través de Nginx.
+# 2 Mejoras
+![alt text](/evidencia/2Mejoras.png)
+Se implementaron dos mejoras adicionales sobre la arquitectura migrada a Kubernetes. Primero, se creó un PodDisruptionBudget para el Deployment demo-api, garantizando que al menos una réplica de la API permanezca disponible durante interrupciones voluntarias. Segundo, se creó un ResourceQuota para limitar el consumo total de CPU, memoria y cantidad de Pods dentro del namespace mas-localhost. Estas capacidades permiten mayor control operativo que Docker Compose no ofrece de forma nativa.
