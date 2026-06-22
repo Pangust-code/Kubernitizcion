@@ -1,0 +1,23 @@
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: demo-api-pdb
+  namespace: mas-localhost
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app: demo-api
+---
+apiVersion: v1
+kind: ResourceQuota
+metadata:
+  name: mas-localhost-quota
+  namespace: mas-localhost
+spec:
+  hard:
+    pods: "20"
+    requests.cpu: "4"
+    requests.memory: "4Gi"
+    limits.cpu: "8"
+    limits.memory: "8Gi"
