@@ -1,0 +1,12 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: api-config
+  namespace: mas-localhost
+data:
+  APP_NAME: "demo-api"
+  ENVIRONMENT: "kubernetes"
+  LOG_LEVEL: "INFO"
+  RATE_LIMIT_REQUESTS: "30"
+  RATE_LIMIT_WINDOW_SECONDS: "60"
+  CACHE_TTL_SECONDS: "60"

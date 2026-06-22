@@ -296,12 +296,10 @@ Configurado en el `lifespan` de FastAPI.
 
 ---
 
-## Recursos
+## Recursosn
 
 - [FastAPI Docs](https://fastapi.tiangolo.com)
 - [Prometheus Docs](https://prometheus.io/docs)
 - [Site Reliability Engineering — Google](https://sre.google/books/)
 - [The Twelve-Factor App](https://12factor.net)
 - [Redis Patterns](https://redis.io/docs/manual/patterns/)
-#   K u b e r n i t i z c i o n  
- 
